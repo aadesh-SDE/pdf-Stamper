@@ -1,4 +1,4 @@
-import { PDFDocument } from "pdf-lib";
+import { PDFDocument, rgb, StandardFonts } from "pdf-lib";
 
 // Make sure these match your actual file names
 import logoLeftPath from "../assets/logos/logo1.png";
@@ -25,15 +25,14 @@ export async function processPdfWithLogos(file) {
     const logoCenter = await pdfDoc.embedPng(logoCenterBytes);
     const logoRight = await pdfDoc.embedPng(logoRightBytes);
 
+    // Embed a standard font for the footer text
+    const customFont = await pdfDoc.embedFont(StandardFonts.Helvetica);
+
     const pages = pdfDoc.getPages();
 
-    // --- NEW PERFECT SCALING LOGIC ---
-    // A standard A4 PDF is about 842 points tall.
-    // We force the logos to a specific target height so they stay small and professional.
-    const TARGET_SIDE_HEIGHT = 35; // Height for the Left and Right logos
-    const TARGET_CENTER_HEIGHT = 70; // Height for the Center VitaHealthCare logo
+    const TARGET_SIDE_HEIGHT = 40;
+    const TARGET_CENTER_HEIGHT = 60;
 
-    // Calculate the perfect scale based on the original image dimensions
     const leftDims = logoLeft.scale(TARGET_SIDE_HEIGHT / logoLeft.height);
     const centerDims = logoCenter.scale(
       TARGET_CENTER_HEIGHT / logoCenter.height,
@@ -43,10 +42,9 @@ export async function processPdfWithLogos(file) {
     for (const page of pages) {
       const { width, height } = page.getSize();
 
-      // How much empty space to leave at the absolute top of the page
+      // --- HEADER LOGIC ---
       const TOP_MARGIN = 20;
 
-      // Draw Left Logo (NABL Accredited)
       page.drawImage(logoLeft, {
         x: 40, // 40 points from the left edge
         // Nudge it down slightly so it vertically aligns with the taller center logo
@@ -71,6 +69,62 @@ export async function processPdfWithLogos(file) {
         y: height - rightDims.height - TOP_MARGIN - 10,
         width: rightDims.width,
         height: rightDims.height,
+      });
+
+      // --- NEW FOOTER LOGIC ---
+      // Update these three variables with your exact text!
+      const footerTextLeft = "Reach Us: 77961 00390";
+      const footerTextCenter = "ECG/Xray at Home";
+      const footerTextRight = "Alt: 8600706216"; // <-- Put your second number here
+
+      const fontSize = 12;
+      const bandHeight = 22;
+      const bandY = 40; // 60 points from the bottom of the page
+
+      // 1. Draw the Dark Blue Rectangle (Full width)
+      page.drawRectangle({
+        x: 0,
+        y: bandY,
+        width: width,
+        height: bandHeight,
+        color: rgb(0.05, 0.2, 0.5),
+      });
+
+      // 2. Draw the Left Number
+      page.drawText(footerTextLeft, {
+        x: 40,
+        y: bandY + 6,
+        size: fontSize,
+        font: customFont,
+        color: rgb(1, 1, 1),
+      });
+
+      // 3. Draw the Center Text
+      // We calculate the width of the text so we can perfectly center it
+      const centerTextWidth = customFont.widthOfTextAtSize(
+        footerTextCenter,
+        fontSize,
+      );
+      page.drawText(footerTextCenter, {
+        x: width / 2 - centerTextWidth / 2, // Perfectly centered
+        y: bandY + 6,
+        size: fontSize,
+        font: customFont,
+        color: rgb(1, 1, 1),
+      });
+
+      // 4. Draw the Right Number
+      // We calculate the width of this text so it aligns neatly with the right margin
+      const rightTextWidth = customFont.widthOfTextAtSize(
+        footerTextRight,
+        fontSize,
+      );
+      page.drawText(footerTextRight, {
+        x: width - rightTextWidth - 40, // Right aligned
+        y: bandY + 6,
+        size: fontSize,
+        font: customFont,
+        color: rgb(1, 1, 1),
       });
     }
 
